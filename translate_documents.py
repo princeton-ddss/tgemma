@@ -26,6 +26,10 @@ from typing import Optional
 from langdetect import detect, DetectorFactory
 from langdetect.lang_detect_exception import LangDetectException
 
+# The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+import warnings
+warnings.filterwarnings("ignore", message=".*generation flags are not valid.*")
+
 # Set seed for consistent language detection
 DetectorFactory.seed = 0
 
