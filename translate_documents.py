@@ -51,33 +51,8 @@ LANGUAGE_NAMES = {
     "tr": "Turkish",
     "ko": "Korean",
     "en": "English",
-    "ar": "Arabic",
-    "zh": "Chinese",
-    "ja": "Japanese",
-    "ru": "Russian",
-    "hi": "Hindi",
-    "nl": "Dutch",
-    "uk": "Ukrainian",
-    "vi": "Vietnamese",
-    "th": "Thai",
-    "id": "Indonesian",
-    "ro": "Romanian",
-    "bg": "Bulgarian",
-    "hr": "Croatian",
-    "sr": "Serbian",
-    "sl": "Slovenian",
-    "et": "Estonian",
-    "lv": "Latvian",
-    "lt": "Lithuanian",
     "ca": "Catalan",
-    "eu": "Basque",
-    "gl": "Galician",
-    "af": "Afrikaans",
-    "sw": "Swahili",
-    "is": "Icelandic",
-    "mt": "Maltese",
-    "cy": "Welsh",
-    "ga": "Irish",
+    "eu": "Basque"
 }
 
 
@@ -132,7 +107,11 @@ Produce only the {target_name} translation, without any additional explanations 
         
         response = self.client.chat(
             model=self.model_name,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            # options={
+            #     "num_predict": -1,  # Allow longer outputs (default: -1)
+            #     "temperature": 0.1,   # Low temperature for consistent translation (default: 0.8)
+            # }
         )
         
         return response["message"]["content"]
@@ -303,12 +282,6 @@ Examples:
   
   # Translate to a different target language:
   uv run python translate_documents.py ./documents --target-lang fr
-
-Supported source languages (your list):
-  Spanish (es), German (de), French (fr), Portuguese (pt), Czech (cs),
-  Danish (da), Finnish (fi), Greek (el), Hungarian (hu), Hebrew (he),
-  Italian (it), Norwegian (no), Polish (pl), Slovak (sk), Swedish (sv),
-  Turkish (tr), Korean (ko)
         """
     )
     
