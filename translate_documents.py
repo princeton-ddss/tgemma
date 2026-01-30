@@ -346,6 +346,17 @@ def chunk_text(text: str, max_chars: int = 4000) -> list[str]:
     return chunks
 
 
+def build_translation_prompt(text: str, source_lang: str, target_lang: str) -> str:
+    """Build a raw text translation prompt (used by Ollama, optionally by HF)."""
+    source_name = get_language_name(source_lang)
+    target_name = get_language_name(target_lang)
+    return f"""You are a professional {source_name} ({source_lang}) to {target_name} ({target_lang}) translator. Your goal is to accurately convey the meaning and nuances of the original {source_name} text while adhering to {target_name} grammar, vocabulary, and cultural sensitivities.
+Produce only the {target_name} translation, without any additional explanations or commentary. Please translate the following {source_name} text into {target_name}:
+
+
+{text}"""
+
+
 class TranslateGemma(ABC):
     """Base class for TranslateGemma backends."""
 
@@ -402,15 +413,7 @@ class TranslateGemmaOllama(TranslateGemma):
 
     def _translate_chunk(self, text: str, source_lang: str, target_lang: str) -> str:
         """Translate a single chunk of text."""
-        source_name = get_language_name(source_lang)
-        target_name = get_language_name(target_lang)
-
-        # TranslateGemma prompt format (note: two blank lines before text)
-        prompt = f"""You are a professional {source_name} ({source_lang}) to {target_name} ({target_lang}) translator. Your goal is to accurately convey the meaning and nuances of the original {source_name} text while adhering to {target_name} grammar, vocabulary, and cultural sensitivities.
-Produce only the {target_name} translation, without any additional explanations or commentary. Please translate the following {source_name} text into {target_name}:
-
-
-{text}"""
+        prompt = build_translation_prompt(text, source_lang, target_lang)
 
         response = self.client.chat(
             model=self.model_name,
@@ -427,9 +430,10 @@ Produce only the {target_name} translation, without any additional explanations 
 class TranslateGemmaHF(TranslateGemma):
     """TranslateGemma using Hugging Face Transformers backend."""
 
-    def __init__(self, model_name: str = "google/translategemma-12b-it", tokenizer=None, max_chunk_tokens: int = MAX_CHUNK_TOKENS, batch_size: int = 1):
+    def __init__(self, model_name: str = "google/translategemma-12b-it", tokenizer=None, max_chunk_tokens: int = MAX_CHUNK_TOKENS, batch_size: int = 1, use_prompt: bool = False):
         super().__init__(tokenizer, max_chunk_tokens)
         self.batch_size = batch_size
+        self.use_prompt = use_prompt
 
         import torch
         from transformers import pipeline
@@ -445,27 +449,13 @@ class TranslateGemmaHF(TranslateGemma):
         )
         print("Model loaded!")
 
-    def _translate_chunk(self, text: str, source_lang: str, target_lang: str) -> str:
-        """Translate a single chunk using HF Transformers."""
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "source_lang_code": source_lang,
-                        "target_lang_code": target_lang,
-                        "text": text,
-                    }
-                ],
-            }
-        ]
-
-        output = self.pipe(text=messages, do_sample=False, pad_token_id=1)
-        return output[0]["generated_text"][-1]["content"]
-
-    def _make_messages(self, text: str, source_lang: str, target_lang: str) -> list:
+    def _build_messages(self, text: str, source_lang: str, target_lang: str) -> list:
         """Build the message payload for a single chunk."""
+        if self.use_prompt:
+            return [{
+                "role": "user",
+                "content": build_translation_prompt(text, source_lang, target_lang),
+            }]
         return [{
             "role": "user",
             "content": [{
@@ -476,30 +466,27 @@ class TranslateGemmaHF(TranslateGemma):
             }],
         }]
 
+    def _translate_chunk(self, text: str, source_lang: str, target_lang: str) -> str:
+        """Translate a single chunk using HF Transformers."""
+        messages = self._build_messages(text, source_lang, target_lang)
+        output = self.pipe(text=messages, do_sample=False, pad_token_id=1)
+        return output[0]["generated_text"][-1]["content"]
+
     def translate(self, text: str, source_lang: str, target_lang: str = "en") -> str:
         """Translate text, using batched inference for multi-chunk documents."""
         if count_tokens(text, self.tokenizer) <= self.max_chunk_tokens:
-            return self._translate_chunk(text, source_lang, target_lang)
+            chunks = [text]
+        else:
+            chunks = chunk_text_by_tokens(text, self.tokenizer, max_tokens=self.max_chunk_tokens)
+            print(f"    Document is long — splitting into {len(chunks)} chunks...")
 
-        chunks = chunk_text_by_tokens(text, self.tokenizer, max_tokens=self.max_chunk_tokens)
-        print(f"    Document is long — splitting into {len(chunks)} chunks...")
-
-        if self.batch_size <= 1:
-            # Sequential path (same as base class)
-            translated_chunks = []
-            for i, chunk in enumerate(chunks, 1):
-                tokens = count_tokens(chunk, self.tokenizer)
-                print(f"    Translating chunk {i}/{len(chunks)} ({tokens} tokens)...")
-                translated_chunks.append(self._translate_chunk(chunk, source_lang, target_lang))
-            return '\n\n'.join(translated_chunks)
-
-        # Batched path
         translated_chunks = []
         for batch_start in range(0, len(chunks), self.batch_size):
             batch = chunks[batch_start:batch_start + self.batch_size]
             batch_end = batch_start + len(batch)
-            print(f"    Translating chunks {batch_start + 1}-{batch_end}/{len(chunks)} (batch_size={len(batch)})...")
-            batch_messages = [self._make_messages(c, source_lang, target_lang) for c in batch]
+            if len(chunks) > 1:
+                print(f"    Translating chunks {batch_start + 1}-{batch_end}/{len(chunks)}...")
+            batch_messages = [self._build_messages(c, source_lang, target_lang) for c in batch]
             outputs = self.pipe(text=batch_messages, do_sample=False, batch_size=len(batch), pad_token_id=1)
             for output in outputs:
                 translated_chunks.append(output[0]["generated_text"][-1]["content"])
@@ -673,7 +660,13 @@ Examples:
         default=1,
         help="Number of chunks to translate in parallel (HF backend only, default: 1)"
     )
-    
+    parser.add_argument(
+        "--use-prompt",
+        action="store_true",
+        default=False,
+        help="Use raw text prompt instead of chat template (HF backend only, for comparison)"
+    )
+
     args = parser.parse_args()
     
     # Validate input directory
@@ -722,7 +715,7 @@ Examples:
         tokenizer = AutoTokenizer.from_pretrained(model_name, fix_mistral_regex=True)
         print(f"Model: {model_name}")
         print("\nInitializing Hugging Face backend...")
-        translator = TranslateGemmaHF(model_name, tokenizer=tokenizer, max_chunk_tokens=args.chunk_size, batch_size=args.batch_size)
+        translator = TranslateGemmaHF(model_name, tokenizer=tokenizer, max_chunk_tokens=args.chunk_size, batch_size=args.batch_size, use_prompt=args.use_prompt)
 
     # Find all .txt files
     txt_files = sorted(args.input_dir.glob("*.txt"))
