@@ -31,9 +31,13 @@ from langdetect.lang_detect_exception import LangDetectException
 # Tokenizer
 from transformers import AutoTokenizer
 
-# The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
 import warnings
+# The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
 warnings.filterwarnings("ignore", message=".*generation flags are not valid.*")
+# Ignore image processor warning
+warnings.filterwarnings("ignore", message=".*use_fast.*")
+# Ignore sequential pipeline warning; fix this by using batch arg instead
+warnings.filterwarnings("ignore", message=".*pipelines sequentially on GPU.*")
 
 # Set seed for consistent language detection
 DetectorFactory.seed = 0
@@ -457,7 +461,7 @@ class TranslateGemmaHF(TranslateGemma):
             }
         ]
 
-        output = self.pipe(text=messages, do_sample=False)
+        output = self.pipe(text=messages, do_sample=False, pad_token_id=1)
         return output[0]["generated_text"][-1]["content"]
 
     def _make_messages(self, text: str, source_lang: str, target_lang: str) -> list:
@@ -496,7 +500,7 @@ class TranslateGemmaHF(TranslateGemma):
             batch_end = batch_start + len(batch)
             print(f"    Translating chunks {batch_start + 1}-{batch_end}/{len(chunks)} (batch_size={len(batch)})...")
             batch_messages = [self._make_messages(c, source_lang, target_lang) for c in batch]
-            outputs = self.pipe(text=batch_messages, do_sample=False, batch_size=len(batch))
+            outputs = self.pipe(text=batch_messages, do_sample=False, batch_size=len(batch), pad_token_id=1)
             for output in outputs:
                 translated_chunks.append(output[0]["generated_text"][-1]["content"])
 
@@ -709,13 +713,13 @@ Examples:
             print(f"Error: Unknown Ollama model '{model_name}'. "
                   f"Known models: {', '.join(OLLAMA_TO_HF.keys())}")
             sys.exit(1)
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_model)
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_model, fix_mistral_regex=True)
         print(f"Model: {model_name}")
         print("\nInitializing Ollama backend...")
         translator = TranslateGemmaOllama(model_name, tokenizer=tokenizer, max_chunk_tokens=args.chunk_size)
     else:
         model_name = args.model or "google/translategemma-12b-it"
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, fix_mistral_regex=True)
         print(f"Model: {model_name}")
         print("\nInitializing Hugging Face backend...")
         translator = TranslateGemmaHF(model_name, tokenizer=tokenizer, max_chunk_tokens=args.chunk_size, batch_size=args.batch_size)
