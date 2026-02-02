@@ -46,17 +46,21 @@ uv sync
 
 1. Install [Ollama](https://ollama.com)
 2. Pull the translation model. For example:
+
    ```bash
    ollama pull translategemma:12b
    ```
 3. Download the tokenizer from HuggingFace (needed for token-aware chunking). This is a gated model, so create a HuggingFace account (if necessary), accept the terms via a [card page](https://huggingface.co/google/translategemma-4b-it) for at least one of the models in this family, and then authenticate. For example:
+
    ```bash
    uv run hf auth login
    uv run hf download google/translategemma-12b-it --include "tokenizer*" "special_tokens_map.json"
    ```
+
    If caching to a custom directory (e.g. on a shared filesystem), set `HF_HOME=/path/to/cache` before `uv`.
    NOTE: Alternatively, the script will download the tokenizer automatically when run with `--fetch`, if a token is present in the `HF_HOME` directory.
 4. Start the Ollama server in a separate terminal:
+
    ```bash
    ollama serve
    ```
@@ -65,10 +69,12 @@ uv sync
 
 1. Requires a GPU with enough VRAM to load the model (~24 GB for 12B in bfloat16).
 2. Authenticate with HuggingFace (gated model; see above):
+
    ```bash
    uv run hf auth login
    ```
 3. Download a full model (includes tokenizer). For example:
+
    ```bash
    uv run hf download google/translategemma-12b-it
    ```
