@@ -31,19 +31,23 @@ from langdetect.lang_detect_exception import LangDetectException
 # Tokenizer
 from transformers import AutoTokenizer
 
+# Suppress noisy transformers log messages (tokenizer regex, pad_token_id, etc.)
+# Actual errors (ERROR level) still come through.
+import logging
+logging.getLogger("transformers").setLevel(logging.ERROR)
+
 import warnings
-# The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
 warnings.filterwarnings("ignore", message=".*generation flags are not valid.*")
-# Ignore image processor warning
 warnings.filterwarnings("ignore", message=".*use_fast.*")
-# Ignore sequential pipeline warning; fix this by using batch arg instead
 warnings.filterwarnings("ignore", message=".*pipelines sequentially on GPU.*")
+warnings.filterwarnings("ignore", message=".*incorrect regex pattern.*")
+warnings.filterwarnings("ignore", message=".*torch_dtype.*is deprecated.*")
 
 # Set seed for consistent language detection
 DetectorFactory.seed = 0
 
 # TranslateGemma context window is 2048 tokens (input + output).
-# Reserve ~150 tokens for the prompt template and split the rest
+# Reserve ~248 tokens for the prompt template and split the rest
 # evenly between the input chunk and the generated translation.
 MAX_CHUNK_TOKENS = 900
 
@@ -89,6 +93,31 @@ def detect_language(text: str) -> Optional[str]:
 def get_language_name(code: str) -> str:
     """Get the full language name from ISO code."""
     return LANGUAGE_NAMES.get(code, code.capitalize())
+
+
+def load_tokenizer(model_name: str, cache_dir: str = None, fetch: bool = False):
+    """Load a HuggingFace tokenizer, downloading only tokenizer files if needed.
+
+    Tries loading from local cache first. If not found and fetch=True,
+    downloads just the tokenizer files (not the full model weights).
+    """
+    try:
+        return AutoTokenizer.from_pretrained(model_name, cache_dir=cache_dir, local_files_only=True)
+    except OSError:
+        if not fetch:
+            print(f"Error: Tokenizer for '{model_name}' not found in cache.")
+            print(f"  Run with --fetch on a node with internet access to download it,")
+            print(f"  or download it manually with:")
+            print(f"    uv run hf download {model_name} --include 'tokenizer*' 'special_tokens_map.json'")
+            sys.exit(1)
+        print(f"Tokenizer not cached locally, downloading from HuggingFace Hub...")
+        from huggingface_hub import snapshot_download
+        snapshot_download(
+            model_name,
+            cache_dir=cache_dir,
+            allow_patterns=["tokenizer*", "special_tokens_map.json"],
+        )
+        return AutoTokenizer.from_pretrained(model_name, cache_dir=cache_dir, local_files_only=True)
 
 
 def chunk_text_by_tokens(
@@ -430,7 +459,7 @@ class TranslateGemmaOllama(TranslateGemma):
 class TranslateGemmaHF(TranslateGemma):
     """TranslateGemma using Hugging Face Transformers backend."""
 
-    def __init__(self, model_name: str = "google/translategemma-12b-it", tokenizer=None, max_chunk_tokens: int = MAX_CHUNK_TOKENS, batch_size: int = 1, use_prompt: bool = False):
+    def __init__(self, model_name: str = "google/translategemma-12b-it", tokenizer=None, max_chunk_tokens: int = MAX_CHUNK_TOKENS, batch_size: int = 1, use_prompt: bool = False, cache_dir: str = None, local_files_only: bool = True):
         super().__init__(tokenizer, max_chunk_tokens)
         self.batch_size = batch_size
         self.use_prompt = use_prompt
@@ -446,6 +475,7 @@ class TranslateGemmaHF(TranslateGemma):
             model=model_name,
             device_map="auto",
             torch_dtype=torch.bfloat16,
+            model_kwargs={"cache_dir": cache_dir, "local_files_only": local_files_only},
         )
         print("Model loaded!")
 
@@ -466,11 +496,33 @@ class TranslateGemmaHF(TranslateGemma):
             }],
         }]
 
+    def _is_truncated(self, text: str) -> bool:
+        """Check if output was likely truncated by hitting max_new_tokens."""
+        return count_tokens(text, self.tokenizer) >= self.max_chunk_tokens
+
+    def _retry_with_split(self, text: str, source_lang: str, target_lang: str) -> str:
+        """Re-translate a chunk by splitting it approximately in half."""
+        input_tokens = count_tokens(text, self.tokenizer)
+        # Use 60% of input tokens (not 50%) to avoid over-splitting while
+        # still leaving enough headroom to avoid re-truncation
+        half = max(int(input_tokens * 0.6), 1)
+        print(f"      Output appears truncated (hit {self.max_chunk_tokens} token limit), "
+              f"splitting chunk ({input_tokens} tokens) and retrying...")
+        sub_chunks = chunk_text_by_tokens(text, self.tokenizer, max_tokens=half)
+        parts = []
+        for j, sub in enumerate(sub_chunks, 1):
+            print(f"      Sub-chunk {j}/{len(sub_chunks)} ({count_tokens(sub, self.tokenizer)} tokens)...")
+            parts.append(self._translate_chunk(sub, source_lang, target_lang))
+        return '\n\n'.join(parts)
+
     def _translate_chunk(self, text: str, source_lang: str, target_lang: str) -> str:
-        """Translate a single chunk using HF Transformers."""
+        """Translate a single chunk, retrying with smaller chunks if truncated."""
         messages = self._build_messages(text, source_lang, target_lang)
-        output = self.pipe(text=messages, do_sample=False, pad_token_id=1)
-        return output[0]["generated_text"][-1]["content"]
+        output = self.pipe(text=messages, do_sample=False, pad_token_id=1, max_new_tokens=self.max_chunk_tokens)
+        result = output[0]["generated_text"][-1]["content"]
+        if self._is_truncated(result):
+            return self._retry_with_split(text, source_lang, target_lang)
+        return result
 
     def translate(self, text: str, source_lang: str, target_lang: str = "en") -> str:
         """Translate text, using batched inference for multi-chunk documents."""
@@ -487,9 +539,12 @@ class TranslateGemmaHF(TranslateGemma):
             if len(chunks) > 1:
                 print(f"    Translating chunks {batch_start + 1}-{batch_end}/{len(chunks)}...")
             batch_messages = [self._build_messages(c, source_lang, target_lang) for c in batch]
-            outputs = self.pipe(text=batch_messages, do_sample=False, batch_size=len(batch), pad_token_id=1)
-            for output in outputs:
-                translated_chunks.append(output[0]["generated_text"][-1]["content"])
+            outputs = self.pipe(text=batch_messages, do_sample=False, batch_size=len(batch), pad_token_id=1, max_new_tokens=self.max_chunk_tokens)
+            for i, output in enumerate(outputs):
+                result = output[0]["generated_text"][-1]["content"]
+                if self._is_truncated(result):
+                    result = self._retry_with_split(batch[i], source_lang, target_lang)
+                translated_chunks.append(result)
 
         return '\n\n'.join(translated_chunks)
 
@@ -499,7 +554,8 @@ def translate_file(
     input_path: Path,
     output_dir: Path,
     source_lang: Optional[str] = None,
-    target_lang: str = "en"
+    target_lang: str = "en",
+    suffix: str = "_translated_{target_lang}",
 ) -> Optional[bool]:
     """Translate a single file. Returns True on success, False on failure, None if skipped."""
     print(f"\n{'='*60}")
@@ -578,7 +634,7 @@ def translate_file(
             print(f"  Warning: Output appears identical to input - translation may have failed")
     
     # Save output
-    output_path = output_dir / f"{input_path.stem}_translated_{target_lang}.txt"
+    output_path = output_dir / f"{input_path.stem}{suffix.format(target_lang=target_lang)}.txt"
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(translated)
     
@@ -666,6 +722,25 @@ Examples:
         default=False,
         help="Use raw text prompt instead of chat template (HF backend only, for comparison)"
     )
+    parser.add_argument(
+        "--suffix",
+        type=str,
+        default="_translated_{target_lang}",
+        help="Suffix for output filenames before .txt (default: '_translated_{target_lang}'). "
+             "Use {target_lang} as a placeholder for the target language code."
+    )
+    parser.add_argument(
+        "--cache-dir",
+        type=str,
+        default=None,
+        help="Directory to cache downloaded HuggingFace models (default: HF_HOME env var)"
+    )
+    parser.add_argument(
+        "--fetch",
+        action="store_true",
+        default=False,
+        help="Allow downloading models from HuggingFace Hub (default: offline mode, models must already be cached)"
+    )
 
     args = parser.parse_args()
     
@@ -679,7 +754,7 @@ Examples:
         sys.exit(1)
 
     if args.chunk_size > MAX_CHUNK_TOKENS:
-        print(f"Warning: --chunk-size {args.chunk_size} exceeds maximum of {MAX_CHUNK_TOKENS} tokens, clamping")
+        print(f"Warning: --chunk-size {args.chunk_size} exceeds recommended maximum of {MAX_CHUNK_TOKENS} tokens, clamping")
         args.chunk_size = MAX_CHUNK_TOKENS
 
     # Set output directory
@@ -706,16 +781,17 @@ Examples:
             print(f"Error: Unknown Ollama model '{model_name}'. "
                   f"Known models: {', '.join(OLLAMA_TO_HF.keys())}")
             sys.exit(1)
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_model, fix_mistral_regex=True)
+        tokenizer = load_tokenizer(tokenizer_model, cache_dir=args.cache_dir, fetch=args.fetch)
         print(f"Model: {model_name}")
         print("\nInitializing Ollama backend...")
         translator = TranslateGemmaOllama(model_name, tokenizer=tokenizer, max_chunk_tokens=args.chunk_size)
     else:
         model_name = args.model or "google/translategemma-12b-it"
-        tokenizer = AutoTokenizer.from_pretrained(model_name, fix_mistral_regex=True)
+        local_only = not args.fetch
+        tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=args.cache_dir, local_files_only=local_only)
         print(f"Model: {model_name}")
         print("\nInitializing Hugging Face backend...")
-        translator = TranslateGemmaHF(model_name, tokenizer=tokenizer, max_chunk_tokens=args.chunk_size, batch_size=args.batch_size, use_prompt=args.use_prompt)
+        translator = TranslateGemmaHF(model_name, tokenizer=tokenizer, max_chunk_tokens=args.chunk_size, batch_size=args.batch_size, use_prompt=args.use_prompt, cache_dir=args.cache_dir, local_files_only=local_only)
 
     # Find all .txt files
     txt_files = sorted(args.input_dir.glob("*.txt"))
@@ -737,7 +813,8 @@ Examples:
             txt_file,
             output_dir,
             args.source_lang,
-            args.target_lang
+            args.target_lang,
+            args.suffix,
         )
         if result is True:
             success_count += 1
