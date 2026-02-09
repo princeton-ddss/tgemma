@@ -17,12 +17,25 @@ Usage with Hugging Face:
 """
 
 import argparse
+import os
 import sys
 import re
 import traceback
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
+
+# HuggingFace reads HF_HOME / HF_HUB_CACHE at import time, so we must
+# set them from --cache-dir before importing transformers or huggingface_hub.
+# Similarly, set HF_HUB_OFFLINE=1 unless --fetch is present.
+if "--cache-dir" in sys.argv:
+    _idx = sys.argv.index("--cache-dir")
+    if _idx + 1 < len(sys.argv):
+        _hf_home = str(Path(sys.argv[_idx + 1]).resolve())
+        os.environ["HF_HOME"] = _hf_home
+        os.environ["HF_HUB_CACHE"] = os.path.join(_hf_home, "hub")
+if "--fetch" not in sys.argv:
+    os.environ["HF_HUB_OFFLINE"] = "1"
 
 # Language detection
 from langdetect import detect, DetectorFactory
@@ -95,14 +108,15 @@ def get_language_name(code: str) -> str:
     return LANGUAGE_NAMES.get(code, code.capitalize())
 
 
-def load_tokenizer(model_name: str, cache_dir: str = None, fetch: bool = False):
+def load_tokenizer(model_name: str, fetch: bool = False):
     """Load a HuggingFace tokenizer, downloading only tokenizer files if needed.
 
     Tries loading from local cache first. If not found and fetch=True,
     downloads just the tokenizer files (not the full model weights).
+    Cache location is controlled by the HF_HOME env var (set via --cache-dir).
     """
     try:
-        return AutoTokenizer.from_pretrained(model_name, cache_dir=cache_dir, local_files_only=True)
+        return AutoTokenizer.from_pretrained(model_name, local_files_only=True)
     except OSError:
         if not fetch:
             print(f"Error: Tokenizer for '{model_name}' not found in cache.")
@@ -114,10 +128,9 @@ def load_tokenizer(model_name: str, cache_dir: str = None, fetch: bool = False):
         from huggingface_hub import snapshot_download
         snapshot_download(
             model_name,
-            cache_dir=cache_dir,
             allow_patterns=["tokenizer*", "special_tokens_map.json"],
         )
-        return AutoTokenizer.from_pretrained(model_name, cache_dir=cache_dir, local_files_only=True)
+        return AutoTokenizer.from_pretrained(model_name, local_files_only=True)
 
 
 def chunk_text_by_tokens(
@@ -459,7 +472,7 @@ class TranslateGemmaOllama(TranslateGemma):
 class TranslateGemmaHF(TranslateGemma):
     """TranslateGemma using Hugging Face Transformers backend."""
 
-    def __init__(self, model_name: str = "google/translategemma-12b-it", tokenizer=None, max_chunk_tokens: int = MAX_CHUNK_TOKENS, batch_size: int = 1, use_prompt: bool = False, cache_dir: str = None, local_files_only: bool = True):
+    def __init__(self, model_name: str = "google/translategemma-12b-it", tokenizer=None, max_chunk_tokens: int = MAX_CHUNK_TOKENS, batch_size: int = 1, use_prompt: bool = False):
         super().__init__(tokenizer, max_chunk_tokens)
         self.batch_size = batch_size
         self.use_prompt = use_prompt
@@ -475,7 +488,6 @@ class TranslateGemmaHF(TranslateGemma):
             model=model_name,
             device_map="auto",
             torch_dtype=torch.bfloat16,
-            model_kwargs={"cache_dir": cache_dir, "local_files_only": local_files_only},
         )
         print("Model loaded!")
 
@@ -781,17 +793,16 @@ Examples:
             print(f"Error: Unknown Ollama model '{model_name}'. "
                   f"Known models: {', '.join(OLLAMA_TO_HF.keys())}")
             sys.exit(1)
-        tokenizer = load_tokenizer(tokenizer_model, cache_dir=args.cache_dir, fetch=args.fetch)
+        tokenizer = load_tokenizer(tokenizer_model, fetch=args.fetch)
         print(f"Model: {model_name}")
         print("\nInitializing Ollama backend...")
         translator = TranslateGemmaOllama(model_name, tokenizer=tokenizer, max_chunk_tokens=args.chunk_size)
     else:
         model_name = args.model or "google/translategemma-12b-it"
-        local_only = not args.fetch
-        tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=args.cache_dir, local_files_only=local_only)
+        tokenizer = load_tokenizer(model_name, fetch=args.fetch)
         print(f"Model: {model_name}")
         print("\nInitializing Hugging Face backend...")
-        translator = TranslateGemmaHF(model_name, tokenizer=tokenizer, max_chunk_tokens=args.chunk_size, batch_size=args.batch_size, use_prompt=args.use_prompt, cache_dir=args.cache_dir, local_files_only=local_only)
+        translator = TranslateGemmaHF(model_name, tokenizer=tokenizer, max_chunk_tokens=args.chunk_size, batch_size=args.batch_size, use_prompt=args.use_prompt)
 
     # Find all .txt files
     txt_files = sorted(args.input_dir.glob("*.txt"))

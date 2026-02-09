@@ -12,8 +12,20 @@ Usage:
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
+
+# HuggingFace reads HF_HOME / HF_HUB_CACHE at import time, so we must
+# set them from --cache-dir before importing translate_documents (which imports transformers).
+if "--cache-dir" in sys.argv:
+    _idx = sys.argv.index("--cache-dir")
+    if _idx + 1 < len(sys.argv):
+        _hf_home = str(Path(sys.argv[_idx + 1]).resolve())
+        os.environ["HF_HOME"] = _hf_home
+        os.environ["HF_HUB_CACHE"] = os.path.join(_hf_home, "hub")
+if "--fetch" not in sys.argv:
+    os.environ["HF_HUB_OFFLINE"] = "1"
 
 from translate_documents import (
     MAX_CHUNK_TOKENS,
@@ -84,7 +96,7 @@ def main():
     output_dir = args.output_dir or (args.input_dir / "chunks")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    tokenizer = load_tokenizer(args.model, cache_dir=args.cache_dir, fetch=args.fetch)
+    tokenizer = load_tokenizer(args.model, fetch=args.fetch)
 
     txt_files = sorted(args.input_dir.glob("*.txt"))
     if not txt_files:
