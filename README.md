@@ -152,6 +152,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 Navigate to project directory:
 
 ```bash
+# or /scratch/network on Adroit
 cd /scratch/gpfs/your-net-id/some-project-dir
 ```
 
@@ -169,7 +170,7 @@ HF_HOME=./.hf uv run hf auth login
 HF_HOME=./.hf uv run hf download google/translategemma-27b-it
 ```
 
-Now modify the slurm script as desired and submit the job:
+Now modify the slurm script as desired and submit the job using the same model as the one you just downloaded (or another you have already downloaded to `./.hf`):
 
 ```bash
 sbatch translate.slurm
