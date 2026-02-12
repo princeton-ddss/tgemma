@@ -175,3 +175,5 @@ Now modify the slurm script as desired and submit the job using the same model a
 ```bash
 sbatch translate.slurm
 ```
+
+## CHANGELOG
