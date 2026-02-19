@@ -1,7 +1,7 @@
 [project]
-name = "translation-tool"
+name = "tgemma"
 version = "0.1.0"
-description = "Batch-translate `.txt` documents into English (or another target language) using Google's TranslateGemma models via Ollama or HuggingFace. Supports automatic language detection and token-aware chunking to work within the small, 2048-token context window."
+description = "Batch-translate documents using Google's TranslateGemma models. Supports automatic language detection and token-aware chunking."
 readme = "README.md"
 requires-python = ">=3.13"
 authors = [
@@ -11,8 +11,26 @@ authors = [
 dependencies = [
     "accelerate>=1.12.0",
     "langdetect>=1.0.9",
-    "ollama>=0.6.1",
     "pillow>=12.1.0",
     "torch>=2.9.1",
     "transformers>=4.57.6",
+    "typer>=0.24.0",
 ]
+
+[project.scripts]
+tgemma = "tgemma.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "ruff>=0.15.0",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
