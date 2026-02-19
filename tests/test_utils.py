@@ -28,8 +28,8 @@ class TestExceptions:
 
 
 class TestEncodingFallbackChain:
-    def test_utf8_is_first(self):
-        assert ENCODING_FALLBACK_CHAIN[0] == "utf-8"
+    def test_utf8_sig_is_first(self):
+        assert ENCODING_FALLBACK_CHAIN[0] == "utf-8-sig"
 
     def test_latin1_is_last(self):
         # latin-1 must be last because it accepts all byte values

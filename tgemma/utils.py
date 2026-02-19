@@ -16,10 +16,11 @@ class SkippedFileError(Exception):
 
 
 # Encoding fallback chain for reading files.
-# Note: latin-1 always succeeds (maps all 256 byte values), so it must be last.
+# Note: utf-8-sig handles both BOM and non-BOM UTF-8 files (strips BOM if present).
+# latin-1 always succeeds (maps all 256 byte values), so it must be last.
 # Files encoded in non-Western encodings (Shift-JIS, GB2312, etc.) will decode
 # as garbage rather than failing - consider using charset-normalizer for better detection.
-ENCODING_FALLBACK_CHAIN = ["utf-8", "utf-8-sig", "cp1252", "iso-8859-15", "latin-1"]
+ENCODING_FALLBACK_CHAIN = ["utf-8-sig", "cp1252", "iso-8859-15", "latin-1"]
 
 
 def read_file_with_fallback(path: Path) -> str:
