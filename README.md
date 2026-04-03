@@ -107,18 +107,16 @@ HF_HOME=./.hf huggingface-cli download google/translategemma-27b-it
 
 cd /scratch/gpfs/$USER/tgemma
 source .venv/bin/activate
+export HF_HOME=./.hf
 
-tgemma ./input \
-    --output-dir ./output \
-    --batch-size 25 \
-    --model google/translategemma-27b-it
+tgemma --output-dir ./output --batch-size 25 --model google/translategemma-27b-it ./input
 ```
 
 Or with uv (no activation needed):
 
 ```bash
 cd /scratch/gpfs/$USER/tgemma
-uv run tgemma ./input --output-dir ./output --batch-size 25
+HF_HOME=./.hf uv run tgemma --output-dir ./output --batch-size 25 ./input
 ```
 
 ## Programmatic usage
