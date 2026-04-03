@@ -10,8 +10,9 @@ from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 from .chunking import chunk_text_by_tokens, count_tokens
 from .detection import LANGUAGES, detect_language, get_language_name
+from .extraction import extract_text
 from .translator import HuggingFaceTranslator
-from .utils import SkippedFileError, TranslationError, read_file_with_fallback
+from .utils import SkippedFileError, TranslationError
 
 
 def load_tokenizer(model_name: str, cache_dir: str | None = None) -> PreTrainedTokenizerBase:
@@ -86,7 +87,7 @@ def translate_file(
     if output_path.exists() and not force:
         raise SkippedFileError(f"Output file already exists: {output_path.name}")
 
-    content = read_file_with_fallback(input_path)
+    content = extract_text(input_path)
 
     if not content.strip():
         raise SkippedFileError("Empty file")
