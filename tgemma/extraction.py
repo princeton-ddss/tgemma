@@ -5,6 +5,7 @@ Supports .txt, .pdf, and common image formats (.png, .jpg, .jpeg, .tiff, .bmp).
 For PDFs, tries text extraction first and falls back to OCR if text is sparse.
 """
 
+import os
 from pathlib import Path
 
 from .utils import TranslationError, read_file_with_fallback
@@ -13,8 +14,20 @@ SUPPORTED_EXTENSIONS = (".txt", ".pdf", ".png", ".jpg", ".jpeg", ".tiff", ".bmp"
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".tiff", ".bmp")
 MIN_TEXT_THRESHOLD = 50  # Minimum characters to consider PDF text extraction successful
 
+# Languages for EasyOCR - Latin script languages that can be used together
+# EasyOCR groups languages by script; Korean/Chinese/Japanese need separate readers
+OCR_LANGUAGES = ["en", "es", "fr", "de", "pt", "it", "pl", "nl", "cs", "da", "hu", "sv", "tr"]
+
 # Lazy-loaded EasyOCR reader (initialized on first use)
 _ocr_reader = None
+
+
+def _get_ocr_model_dir() -> str | None:
+    """Get the OCR model directory from HF_HOME environment variable."""
+    hf_home = os.environ.get("HF_HOME")
+    if hf_home:
+        return os.path.join(hf_home, "easyocr")
+    return None
 
 
 def get_supported_files(input_dir: Path) -> list[Path]:
@@ -123,12 +136,13 @@ def _ocr_images(images: list) -> str:
     if _ocr_reader is None:
         import easyocr
 
-        # Initialize with common languages; EasyOCR will download models on first use
-        # Using a broad set to match TranslateGemma's multilingual capabilities
-        print("  Initializing OCR (first run may download language models)...")
+        model_dir = _get_ocr_model_dir()
+        print("  Initializing OCR...")
         _ocr_reader = easyocr.Reader(
-            ["en", "es", "fr", "de", "pt", "it", "pl", "nl", "cs", "da", "fi", "el", "hu", "sv", "tr", "ko"],
+            OCR_LANGUAGES,
             gpu=True,
+            model_storage_directory=model_dir,
+            download_enabled=False,  # Models must be pre-downloaded on login node
             verbose=False,
         )
 

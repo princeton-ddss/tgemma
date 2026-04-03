@@ -1,14 +1,17 @@
 # tgemma - TranslateGemma Document Translation
 
-Batch-translate `.txt` documents into English (or another target language) using Google's [TranslateGemma models](https://huggingface.co/collections/google/translategemma-release-67c2e3ba5ae4c7007c8ae1a4) via HuggingFace Transformers. Supports automatic language detection and token-aware chunking to work within the 2048-token context window.
+Batch-translate documents into English (or another target language) using Google's [TranslateGemma models](https://huggingface.co/collections/google/translategemma-release-67c2e3ba5ae4c7007c8ae1a4) via HuggingFace Transformers. Supports `.txt`, `.pdf`, and image files (`.png`, `.jpg`, `.jpeg`, `.tiff`, `.bmp`) with automatic language detection and token-aware chunking to work within the 2048-token context window.
 
 ## How it works
 
-1. Each `.txt` file in an input directory is read (with automatic encoding detection).
+1. Each file in an input directory is processed based on its type:
+   - **Text files**: Read with automatic encoding detection
+   - **PDFs**: Text extracted via pdfplumber; scanned PDFs fall back to OCR
+   - **Images**: Text extracted via EasyOCR
 2. The source language is detected via `langdetect` (or supplied with `--source-lang`).
 3. If the document exceeds the token budget (900 tokens by default), it is split into chunks at paragraph and/or sentence boundaries.
 4. Chunks are translated via the HuggingFace Transformers pipeline. Truncated output is automatically detected and retried with smaller chunks.
-5. Translated chunks are reassembled and written to the output directory.
+5. Translated chunks are reassembled and written to the output directory as `.txt` files.
 
 ## Supported languages
 
@@ -22,6 +25,7 @@ tgemma/
   chunking.py       # Token-aware text splitting
   cli.py            # Typer CLI
   detection.py      # Language detection
+  extraction.py     # PDF/image text extraction
   orchestration.py  # Translation workflows
   translator.py     # HuggingFace translator
   utils.py          # File I/O, exceptions
@@ -89,9 +93,22 @@ tgemma chunk ./input --chunk-size 500
 cd /scratch/gpfs/$USER/tgemma
 pip install -e .
 
-# Authenticate and download model to local cache
+# Authenticate and download translation model to local cache
 HF_HOME=./.hf huggingface-cli login
 HF_HOME=./.hf huggingface-cli download google/translategemma-27b-it
+
+# Download OCR models for PDF/image support (stored in $HF_HOME/easyocr)
+HF_HOME=./.hf python -c "
+import easyocr
+easyocr.Reader(
+    ['en', 'es', 'fr', 'de', 'pt', 'it', 'pl', 'nl', 'cs', 'da', 'hu', 'sv', 'tr'],
+    gpu=False,
+    model_storage_directory='./.hf/easyocr',
+    download_enabled=True,
+    verbose=True,
+)
+print('OCR models downloaded.')
+"
 ```
 
 ### Example Slurm script
