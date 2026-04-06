@@ -33,11 +33,10 @@ class HuggingFaceTranslator:
         model_name: str = "google/translategemma-12b-it",
         tokenizer: PreTrainedTokenizerBase | None = None,
         max_chunk_tokens: int = MAX_CHUNK_TOKENS,
-        batch_size: int = 1,
+        batch_size: int | None = None,
     ):
         self.tokenizer = tokenizer
         self.max_chunk_tokens = max_chunk_tokens
-        self.batch_size = batch_size
 
         import torch
         from transformers import pipeline
@@ -52,6 +51,33 @@ class HuggingFaceTranslator:
             torch_dtype=torch.bfloat16,
         )
         print("Model loaded!")
+
+        if batch_size is None:
+            self.batch_size = self._auto_batch_size()
+            print(f"Auto batch size: {self.batch_size}")
+        else:
+            self.batch_size = batch_size
+
+    def _auto_batch_size(self) -> int:
+        """Estimate batch size from free VRAM and model KV-cache footprint."""
+        import torch
+        if not torch.cuda.is_available():
+            return 1
+
+        free_bytes, _ = torch.cuda.mem_get_info()
+        print(f"free bytes: {free_bytes}")
+        cfg = self.pipe.model.config
+        if hasattr(cfg, "text_config"):
+            cfg = cfg.text_config
+        n_layers = cfg.num_hidden_layers
+        n_kv_heads = getattr(cfg, "num_key_value_heads", cfg.num_attention_heads)
+        head_dim = getattr(cfg, "head_dim", cfg.hidden_size // cfg.num_attention_heads)
+        # KV cache per sequence: 2 (K+V) * layers * kv_heads * head_dim * tokens * 2 bytes (bfloat16)
+        # 1.5x overhead for activations and intermediate buffers
+        per_seq_bytes = int(2 * n_layers * n_kv_heads * head_dim * self.max_chunk_tokens * 2 * 1.5)
+        print(f"per_seq_bytes: {per_seq_bytes}")
+
+        return max(1, min(int(free_bytes // per_seq_bytes), 256))
 
     def _build_messages(self, text: str, source_lang: str, target_lang: str) -> list:
         """Build the message payload for a single chunk."""
