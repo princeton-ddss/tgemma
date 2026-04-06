@@ -13,4 +13,7 @@ wheels/
 .DS_Store
 
 # input data
-input/*
+*/input/*
+
+#hugging face
+.hf/
