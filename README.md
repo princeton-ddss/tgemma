@@ -33,29 +33,37 @@ tgemma/
 - GPU with sufficient VRAM (~24 GB for 12B model in bfloat16)
 - HuggingFace account with accepted terms for [TranslateGemma](https://huggingface.co/google/translategemma-12b-it)
 
-## Setup
+## Running Locally
 
+### Setup
 ```bash
 git clone <repo-url> && cd tgemma
+```
+If using a virtual environment (recommended), create/activate that now before installing dependencies. 
+
+Conda:
+```bash
+conda create -n tgemma python=3.13
+conda activate tgemma
 pip install -e .
 ```
 
 Authenticate with HuggingFace and download the model:
 
 ```bash
-huggingface-cli login
-huggingface-cli download google/translategemma-12b-it
+export HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+hf download google/translategemma-12b-it
 ```
 
-## Usage
+### Usage
 
-### Translate documents
+#### Translate documents
 
 ```bash
 tgemma ./input
 ```
 
-### Options
+#### Options
 
 ```
 tgemma --help
@@ -72,7 +80,7 @@ Options:
   --force / --no-force   Re-translate even if output exists (default: no-force)
 ```
 
-### Chunk documents (no translation)
+#### Chunk documents (no translation)
 
 Useful for inspecting how documents will be split:
 
@@ -87,11 +95,13 @@ tgemma chunk ./input --chunk-size 500
 
 ```bash
 cd /scratch/gpfs/$USER/tgemma
+conda create -n tgemma python=3.13
+conda activate tgemma
 pip install -e .
 
 # Authenticate and download model to local cache
-HF_HOME=./.hf huggingface-cli login
-HF_HOME=./.hf huggingface-cli download google/translategemma-27b-it
+export HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+HF_HOME=./.hf hf download google/translategemma-27b-it
 ```
 
 ### Example Slurm script
@@ -106,19 +116,18 @@ HF_HOME=./.hf huggingface-cli download google/translategemma-27b-it
 #SBATCH --time=24:00:00
 
 cd /scratch/gpfs/$USER/tgemma
-source .venv/bin/activate
+conda activate tgemma
+export HF_HOME=./.hf
 
-tgemma ./input \
-    --output-dir ./output \
-    --batch-size 25 \
-    --model google/translategemma-27b-it
+tgemma --batch-size 25 --model google/translategemma-27b-it ./input 
 ```
 
 Or with uv (no activation needed):
 
 ```bash
 cd /scratch/gpfs/$USER/tgemma
-uv run tgemma ./input --output-dir ./output --batch-size 25
+export HF_HOME=./.hf
+uv run tgemma --output-dir ./output --batch-size 25 ./input
 ```
 
 ## Programmatic usage
@@ -146,3 +155,20 @@ result = translate_text(
     target_lang="en",
 )
 ```
+
+<!--
+Checked:
+- slurm script
+- conda env on HPC
+
+Not checked:
+- running locally
+- programmatic usage
+- uv on HPC
+
+Need to add:
+- installation instructions if not using CONDA
+- slurm if not using cluster
+- more explanation 
+
+-->
