@@ -63,9 +63,7 @@ class HuggingFaceTranslator:
         import torch
         if not torch.cuda.is_available():
             return 1
-
         free_bytes, _ = torch.cuda.mem_get_info()
-        print(f"free bytes: {free_bytes}")
         cfg = self.pipe.model.config
         if hasattr(cfg, "text_config"):
             cfg = cfg.text_config
@@ -75,8 +73,6 @@ class HuggingFaceTranslator:
         # KV cache per sequence: 2 (K+V) * layers * kv_heads * head_dim * tokens * 2 bytes (bfloat16)
         # 1.5x overhead for activations and intermediate buffers
         per_seq_bytes = int(2 * n_layers * n_kv_heads * head_dim * self.max_chunk_tokens * 2 * 1.5)
-        print(f"per_seq_bytes: {per_seq_bytes}")
-
         return max(1, min(int(free_bytes // per_seq_bytes), 256))
 
     def _build_messages(self, text: str, source_lang: str, target_lang: str) -> list:
