@@ -21,6 +21,7 @@ from .utils import SkippedFileError, TranslationError, read_file_with_fallback
 app = typer.Typer(
     help="Translate documents using TranslateGemma. Run 'tgemma <dir>' to translate.",
     invoke_without_command=True,
+    context_settings={"allow_interspersed_args": True},
 )
 
 
