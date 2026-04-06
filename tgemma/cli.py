@@ -10,14 +10,13 @@ import typer
 
 from .chunking import MAX_CHUNK_TOKENS, chunk_text_by_tokens, count_tokens
 from .detection import detect_language, get_language_name
-from .extraction import SUPPORTED_EXTENSIONS, extract_text, get_supported_files
 from .orchestration import (
     download_tokenizer,
     load_tokenizer,
     translate_file,
 )
 from .translator import HuggingFaceTranslator
-from .utils import SkippedFileError, TranslationError
+from .utils import SkippedFileError, TranslationError, read_file_with_fallback
 
 app = typer.Typer(
     help="Translate documents using TranslateGemma. Run 'tgemma <dir>' to translate.",
@@ -83,13 +82,12 @@ def run_translate(
         batch_size=batch_size,
     )
 
-    input_files = get_supported_files(input_dir)
-    if not input_files:
-        print(f"\nNo supported files found in {input_dir}")
-        print(f"  Supported: {', '.join(SUPPORTED_EXTENSIONS)}")
+    txt_files = sorted(input_dir.glob("*.txt"))
+    if not txt_files:
+        print(f"\nNo .txt files found in {input_dir}")
         raise typer.Exit(1)
 
-    print(f"\nFound {len(input_files)} file(s) to process")
+    print(f"\nFound {len(txt_files)} .txt file(s) to process")
     print(f"Output directory: {out_dir}")
     if force:
         print("Force mode: will re-translate existing files")
@@ -98,24 +96,24 @@ def run_translate(
     skipped_count = 0
     failed_files = []
 
-    for input_file in input_files:
+    for txt_file in txt_files:
         try:
-            translate_file(translator, input_file, out_dir, source_lang, target_lang, suffix, force)
+            translate_file(translator, txt_file, out_dir, source_lang, target_lang, suffix, force)
             success_count += 1
         except SkippedFileError as e:
             print(f"  Skipping: {e}")
             skipped_count += 1
         except TranslationError as e:
             print(f"  Error: {e}")
-            failed_files.append(input_file.name)
+            failed_files.append(txt_file.name)
         except Exception as e:
             print(f"  Error during translation: {e}")
             traceback.print_exc()
-            failed_files.append(input_file.name)
+            failed_files.append(txt_file.name)
 
     print(f"\n{'=' * 60}")
     print("Translation complete!")
-    print(f"Successfully translated: {success_count}/{len(input_files)} files")
+    print(f"Successfully translated: {success_count}/{len(txt_files)} files")
     if skipped_count:
         print(f"Skipped: {skipped_count} file(s)")
     if failed_files:
@@ -129,7 +127,7 @@ def run_translate(
 @app.callback()
 def main_callback(
     ctx: typer.Context,
-    input_dir: Annotated[Optional[Path], typer.Argument(help="Directory containing files to translate")] = None,
+    input_dir: Annotated[Optional[Path], typer.Argument(help="Directory containing .txt files")] = None,
     output_dir: Annotated[Optional[Path], typer.Option(help="Output directory")] = None,
     source_lang: Annotated[Optional[str], typer.Option(help="Source language code (auto-detect)")] = None,
     target_lang: Annotated[str, typer.Option(help="Target language code")] = "en",
@@ -155,7 +153,7 @@ def main_callback(
 
 @app.command()
 def chunk(
-    input_dir: Annotated[Path, typer.Argument(help="Directory containing files to chunk")],
+    input_dir: Annotated[Path, typer.Argument(help="Directory containing .txt files to chunk")],
     output_dir: Annotated[Optional[Path], typer.Option(help="Output directory")] = None,
     target_lang: Annotated[str, typer.Option(help="Skip files already in this language")] = "en",
     chunk_size: Annotated[int, typer.Option(help="Maximum tokens per chunk")] = MAX_CHUNK_TOKENS,
@@ -180,21 +178,20 @@ def chunk(
 
     tokenizer = get_tokenizer(model, fetch)
 
-    input_files = get_supported_files(input_dir)
-    if not input_files:
-        print(f"No supported files found in {input_dir}")
-        print(f"  Supported: {', '.join(SUPPORTED_EXTENSIONS)}")
+    txt_files = sorted(input_dir.glob("*.txt"))
+    if not txt_files:
+        print(f"No .txt files found in {input_dir}")
         raise typer.Exit(1)
 
-    print(f"Found {len(input_files)} file(s), chunk size: {chunk_size} tokens")
+    print(f"Found {len(txt_files)} file(s), chunk size: {chunk_size} tokens")
     print(f"Output directory: {out_dir}")
 
-    for input_file in input_files:
+    for txt_file in txt_files:
         print(f"\n{'='*60}")
-        print(f"Processing: {input_file.name}")
+        print(f"Processing: {txt_file.name}")
 
         try:
-            content = extract_text(input_file)
+            content = read_file_with_fallback(txt_file)
         except TranslationError as e:
             print(f"  Error: {e}")
             continue
@@ -226,7 +223,7 @@ def chunk(
 
         for i, chunk_text in enumerate(chunks, 1):
             chunk_tokens = count_tokens(chunk_text, tokenizer)
-            chunk_path = out_dir / f"{input_file.stem}_chunk{i:03d}.txt"
+            chunk_path = out_dir / f"{txt_file.stem}_chunk{i:03d}.txt"
             with open(chunk_path, "w", encoding="utf-8") as f:
                 f.write(chunk_text)
             print(f"  Wrote {chunk_path.name} ({chunk_tokens} tokens)")

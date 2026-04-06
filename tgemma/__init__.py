@@ -41,7 +41,6 @@ warnings.filterwarnings("ignore", message=".*torch_dtype.*is deprecated.*")
 # Public API (imports after os.environ setup is intentional)
 from .chunking import MAX_CHUNK_TOKENS, chunk_text_by_tokens, count_tokens  # noqa: E402
 from .detection import LANGUAGES, detect_language, get_language_name  # noqa: E402
-from .extraction import SUPPORTED_EXTENSIONS, extract_text, get_supported_files  # noqa: E402
 from .orchestration import (  # noqa: E402
     download_tokenizer,
     get_output_path,
@@ -61,10 +60,6 @@ __all__ = [
     "LANGUAGES",
     "detect_language",
     "get_language_name",
-    # Extraction
-    "SUPPORTED_EXTENSIONS",
-    "extract_text",
-    "get_supported_files",
     # Orchestration
     "load_tokenizer",
     "download_tokenizer",
