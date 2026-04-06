@@ -18,6 +18,9 @@ MIN_TEXT_THRESHOLD = 50  # Minimum characters to consider PDF text extraction su
 # EasyOCR groups languages by script; Korean/Chinese/Japanese need separate readers
 OCR_LANGUAGES = ["en", "es", "fr", "de", "pt", "it", "pl", "nl", "cs", "da", "hu", "sv", "tr"]
 
+# Punctuation that indicates end of sentence
+SENTENCE_ENDINGS = ".!?"
+
 # Lazy-loaded EasyOCR reader (initialized on first use)
 _ocr_reader = None
 
@@ -28,6 +31,50 @@ def _get_ocr_model_dir() -> str | None:
     if hf_home:
         return os.path.join(hf_home, "easyocr")
     return None
+
+
+def _join_pages(pages: list[str]) -> str:
+    """
+    Intelligently join pages, preserving paragraph breaks only where appropriate.
+
+    Rules:
+    - If previous page ends with sentence-ending punctuation → new paragraph
+    - If current page starts with indentation (leading whitespace) → new paragraph
+    - Otherwise → join with a single space (mid-sentence page break)
+    """
+    if not pages:
+        return ""
+
+    result = []
+    for page in pages:
+        # Check for leading whitespace before stripping (indicates indentation/new paragraph)
+        has_leading_indent = page and page[0] in " \t"
+
+        page = page.strip()
+        if not page:
+            continue
+
+        if not result:
+            # First non-empty page
+            result.append(page)
+            continue
+
+        prev_text = result[-1]
+        prev_char = prev_text[-1] if prev_text else ""
+
+        # Check if previous page ends a sentence
+        ends_sentence = prev_char in SENTENCE_ENDINGS
+
+        # New paragraph if: previous ends sentence, OR current has leading indent
+        if ends_sentence or has_leading_indent:
+            result.append("\n\n")
+            result.append(page)
+        else:
+            # Continue same paragraph (mid-sentence page break)
+            result.append(" ")
+            result.append(page)
+
+    return "".join(result)
 
 
 def get_supported_files(input_dir: Path) -> list[Path]:
@@ -73,7 +120,7 @@ def _extract_pdf(path: Path) -> str:
     Strategy:
     1. Try pdfplumber for text-based PDFs
     2. If text is minimal (<50 chars), fall back to OCR
-    3. Concatenate all pages with double newlines
+    3. Intelligently join pages (preserving paragraphs, joining mid-sentence breaks)
     """
     import pdfplumber
 
@@ -82,9 +129,9 @@ def _extract_pdf(path: Path) -> str:
             pages_text = []
             for page in pdf.pages:
                 text = page.extract_text() or ""
-                pages_text.append(text.strip())
+                pages_text.append(text)
 
-            combined = "\n\n".join(t for t in pages_text if t)
+            combined = _join_pages(pages_text)
 
             # If text extraction yielded minimal results, try OCR
             if len(combined) < MIN_TEXT_THRESHOLD:
@@ -129,7 +176,7 @@ def _ocr_images(images: list) -> str:
         images: List of PIL Image objects.
 
     Returns:
-        Concatenated text from all images, separated by double newlines.
+        Concatenated text, intelligently joined across page boundaries.
     """
     global _ocr_reader
 
@@ -156,9 +203,9 @@ def _ocr_images(images: list) -> str:
 
         # Extract text from results (each result is [bbox, text, confidence])
         text = " ".join(r[1] for r in results)
-        pages_text.append(text.strip())
+        pages_text.append(text)
 
         if len(images) > 1:
             print(f"    OCR page {i}/{len(images)} complete")
 
-    return "\n\n".join(t for t in pages_text if t)
+    return _join_pages(pages_text)
