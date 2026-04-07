@@ -834,7 +834,7 @@ wheels = [
 [[package]]
 name = "tgemma"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "accelerate" },
     { name = "langdetect" },
@@ -852,18 +852,18 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "accelerate", specifier = ">=1.12.0" },
+    { name = "accelerate", specifier = ">=1.12" },
     { name = "langdetect", specifier = ">=1.0.9" },
-    { name = "pillow", specifier = ">=12.1.0" },
+    { name = "pillow", specifier = ">=12.1" },
     { name = "torch", specifier = ">=2.9.1" },
     { name = "transformers", specifier = ">=4.57.6" },
-    { name = "typer", specifier = ">=0.24.0" },
+    { name = "typer", specifier = ">=0.24" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "pytest", specifier = ">=9.0.2" },
-    { name = "ruff", specifier = ">=0.15.0" },
+    { name = "ruff", specifier = ">=0.15" },
 ]
 
 [[package]]

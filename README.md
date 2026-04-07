@@ -40,10 +40,11 @@ tgemma/
 git clone <repo-url> && cd tgemma
 ```
 
-**With uv (recommended — no separate Python install needed):**
+**With uv (recommended):**
 ```bash
 pip install uv        # skip if already installed
 uv sync
+source .venv/bin/activate
 ```
 
 **With conda:**
@@ -53,7 +54,7 @@ conda activate tgemma
 pip install -e .
 ```
 
-Authenticate with HuggingFace (you'll be prompted to paste your token — get one at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) after accepting the [TranslateGemma license](https://huggingface.co/google/translategemma-12b-it)):
+Authenticate with HuggingFace (you'll be prompted to paste your token — get one after accepting the [TranslateGemma license](https://huggingface.co/google/translategemma-12b-it)):
 ```bash
 hf auth login
 ```
@@ -81,7 +82,7 @@ Options:
   --source-lang TEXT     Source language code (auto-detect if not provided)
   --target-lang TEXT     Target language code (default: en)
   --chunk-size INT       Maximum tokens per chunk (default: 900)
-  --batch-size INT       Chunks to translate in parallel (default: 1)
+  --batch-size INT       Chunks to translate in parallel (default: auto)
   --model TEXT           HuggingFace model (default: google/translategemma-12b-it)
   --suffix TEXT          Output filename suffix (default: _translated_{target_lang})
   --fetch / --no-fetch   Allow downloading from HuggingFace Hub (default: no-fetch)
@@ -114,6 +115,7 @@ pip install -e .
 cd /scratch/gpfs/$USER/tgemma
 pip install uv        # skip if already installed
 uv sync
+source .venv/bin/activate
 ```
 
 Authenticate and download the model to local cache:
