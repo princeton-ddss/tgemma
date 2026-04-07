@@ -4,6 +4,7 @@ Orchestration for document translation.
 Handles chunking, retry logic, merging, and file-level translation workflows.
 """
 
+from collections.abc import Callable
 from pathlib import Path
 
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
@@ -61,7 +62,7 @@ def translate_file(
     target_lang: str = "en",
     suffix: str = "_translated_{target_lang}",
     force: bool = False,
-    on_progress: callable = print,
+    on_progress: Callable[..., None] = print,
 ) -> None:
     """
     Translate a single file.

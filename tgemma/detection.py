@@ -76,6 +76,6 @@ def _detect_sample(sample: str) -> str | None:
     try:
         if len(sample.strip()) < 20:
             return None
-        return detect(sample)
+        return str(detect(sample))
     except LangDetectException:
         return None

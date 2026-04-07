@@ -2,11 +2,16 @@
 Command-line interface for document translation.
 """
 
+from __future__ import annotations
+
 import traceback
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import TYPE_CHECKING, Annotated, Optional
 
 import typer
+
+if TYPE_CHECKING:
+    from transformers import PreTrainedTokenizerBase
 
 from .chunking import MAX_CHUNK_TOKENS, chunk_text_by_tokens, count_tokens
 from .detection import detect_language, get_language_name
@@ -25,7 +30,7 @@ app = typer.Typer(
 )
 
 
-def get_tokenizer(model_name: str, fetch: bool):
+def get_tokenizer(model_name: str, fetch: bool) -> PreTrainedTokenizerBase:
     """Load tokenizer, downloading if needed and allowed."""
     try:
         return load_tokenizer(model_name)
@@ -125,7 +130,7 @@ def run_translate(
     print("=" * 60)
 
 
-@app.callback()
+@app.callback()  # type: ignore[misc]
 def main_callback(
     ctx: typer.Context,
     input_dir: Annotated[Optional[Path], typer.Argument(help="Directory containing .txt files")] = None,
@@ -160,7 +165,7 @@ def main_callback(
         )
 
 
-@app.command()
+@app.command()  # type: ignore[misc]
 def chunk(
     input_dir: Annotated[Path, typer.Argument(help="Directory containing .txt files to chunk")],
     output_dir: Annotated[Optional[Path], typer.Option(help="Output directory")] = None,

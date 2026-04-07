@@ -76,7 +76,7 @@ class HuggingFaceTranslator:
         per_seq_bytes = int(2 * n_layers * n_kv_heads * head_dim * self.max_chunk_tokens * 2 * 1.5)
         return max(1, min(int(free_bytes // per_seq_bytes), 256))
 
-    def _build_messages(self, text: str, source_lang: str, target_lang: str) -> list:
+    def _build_messages(self, text: str, source_lang: str, target_lang: str) -> list[dict[str, object]]:
         """Build the message payload for a single chunk."""
         return [
             {
@@ -110,7 +110,7 @@ class HuggingFaceTranslator:
             pad_token_id=1,
             max_new_tokens=self.max_chunk_tokens,
         )
-        result = output[0]["generated_text"][-1]["content"]
+        result: str = output[0]["generated_text"][-1]["content"]
 
         if not result or not result.strip():
             raise TranslationError("Translation returned empty result")
