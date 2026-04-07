@@ -4,13 +4,19 @@ on:
   push:
     branches:
       - main
+      - master
   pull_request:
     branches:
       - main
-  workflow_call:
+      - master
+env:
+  FORCE_COLOR: "1"
+
 concurrency:
   group: CI-${{ github.ref }}
   cancel-in-progress: true
+permissions:
+  contents: write
 
 jobs:
   lint:
@@ -36,15 +42,15 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
         python-version: ["3.13"]
-      steps:
-        - uses: actions/checkout@v4
-        - uses: wntrblm/nox@main
-        - name: Set up Python ${{ matrix.python-version }}
-          uses: actions/setup-python@v5
-          with:
-            python-version: ${{ matrix.python-version }}
-        - name: Install Project
-          run: |
-            python -m pip install --disable-pip-version-check .
-        - name: Run tests on ${{ matrix.os }}
-          run: nox --non-interactive --error-on-missing-interpreters --session "tests-${{ matrix.python-version }}" -- --full-trace
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wntrblm/nox@main
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Project
+        run: |
+          python -m pip install --disable-pip-version-check .
+      - name: Run tests on ${{ matrix.os }}
+        run: nox --non-interactive --error-on-missing-interpreters --session "tests-${{ matrix.python-version }}" -- --full-trace
