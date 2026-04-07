@@ -46,7 +46,7 @@ def chunk_text_by_tokens(
         List of text chunks, each guaranteed to be <= max_tokens.
     """
     # Normalize line endings and split into paragraphs
-    paragraphs = text.replace('\r\n', '\n').split('\n\n')
+    paragraphs = text.replace("\r\n", "\n").split("\n\n")
 
     chunks: list[str] = []
     current_chunk: list[str] = []
@@ -65,7 +65,7 @@ def chunk_text_by_tokens(
         if para_tokens > max_tokens:
             # Paragraph exceeds limit - flush current chunk and split paragraph
             if current_chunk:
-                chunks.append('\n\n'.join(current_chunk))
+                chunks.append("\n\n".join(current_chunk))
                 current_chunk = []
                 current_tokens = 0
 
@@ -75,7 +75,7 @@ def chunk_text_by_tokens(
 
         elif current_tokens + para_tokens > max_tokens:
             # Adding paragraph would exceed limit - flush and start new chunk
-            chunks.append('\n\n'.join(current_chunk))
+            chunks.append("\n\n".join(current_chunk))
             current_chunk = [para]
             current_tokens = para_tokens
         else:
@@ -84,7 +84,7 @@ def chunk_text_by_tokens(
             current_tokens += para_tokens
 
     if current_chunk:
-        chunks.append('\n\n'.join(current_chunk))
+        chunks.append("\n\n".join(current_chunk))
 
     return chunks
 
@@ -96,7 +96,7 @@ def _chunk_by_sentences(
     tokenizer: PreTrainedTokenizerBase,
 ) -> list[str]:
     """Split a paragraph by sentences, falling back to token splits if needed."""
-    sentences = re.split(r'(?<=[.!?])\s+', paragraph)
+    sentences = re.split(r"(?<=[.!?])\s+", paragraph)
     chunks: list[str] = []
     current_chunk: list[str] = []
     current_tokens = 0
@@ -111,7 +111,7 @@ def _chunk_by_sentences(
         if sent_tokens > max_tokens:
             # Single sentence exceeds limit - flush and hard-split by tokens
             if current_chunk:
-                chunks.append(' '.join(current_chunk))
+                chunks.append(" ".join(current_chunk))
                 current_chunk = []
                 current_tokens = 0
 
@@ -120,7 +120,7 @@ def _chunk_by_sentences(
 
         elif current_tokens + sent_tokens > max_tokens:
             # Adding sentence would exceed limit - flush and start new
-            chunks.append(' '.join(current_chunk))
+            chunks.append(" ".join(current_chunk))
             current_chunk = [sent]
             current_tokens = sent_tokens
         else:
@@ -129,7 +129,7 @@ def _chunk_by_sentences(
             current_tokens += sent_tokens
 
     if current_chunk:
-        chunks.append(' '.join(current_chunk))
+        chunks.append(" ".join(current_chunk))
 
     return chunks
 
@@ -144,7 +144,7 @@ def _chunk_by_raw_tokens(
     chunks: list[str] = []
 
     for i in range(0, len(tokens), max_tokens):
-        chunk_tokens = tokens[i:i + max_tokens]
+        chunk_tokens = tokens[i : i + max_tokens]
         chunks.append(tokenizer.decode(chunk_tokens))
 
     return chunks

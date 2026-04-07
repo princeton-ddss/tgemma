@@ -40,6 +40,7 @@ def download_tokenizer(model_name: str, cache_dir: str | None = None) -> None:
         cache_dir: Optional cache directory override.
     """
     from huggingface_hub import snapshot_download
+
     snapshot_download(
         model_name,
         allow_patterns=["tokenizer*", "special_tokens_map.json"],
@@ -79,7 +80,7 @@ def translate_file(
         SkippedFileError: If file should be skipped.
         TranslationError: If translation fails.
     """
-    on_progress(f"\n{'='*60}")
+    on_progress(f"\n{'=' * 60}")
     on_progress(f"Processing: {input_path.name}")
 
     output_path = get_output_path(input_path, output_dir, suffix, target_lang)
@@ -98,9 +99,7 @@ def translate_file(
     if detected_lang is None:
         detected_lang = detect_language(content)
         if detected_lang is None:
-            raise TranslationError(
-                "Could not detect language (text may be too short or mixed)"
-            )
+            raise TranslationError("Could not detect language (text may be too short or mixed)")
         on_progress(f"  Detected language: {get_language_name(detected_lang)} ({detected_lang})")
     else:
         on_progress(f"  Source language: {get_language_name(detected_lang)} ({detected_lang})")
@@ -165,12 +164,19 @@ def translate_text(
     translated_chunks = []
     for i, chunk in enumerate(chunks):
         result = _translate_chunk_with_retry(
-            chunk, translator, source_lang, target_lang,
-            tokenizer, max_tokens, max_retries, chunk_num=i + 1, total_chunks=len(chunks)
+            chunk,
+            translator,
+            source_lang,
+            target_lang,
+            tokenizer,
+            max_tokens,
+            max_retries,
+            chunk_num=i + 1,
+            total_chunks=len(chunks),
         )
         translated_chunks.append(result)
 
-    return '\n\n'.join(translated_chunks)
+    return "\n\n".join(translated_chunks)
 
 
 def _translate_chunk_with_retry(
@@ -202,18 +208,25 @@ def _translate_chunk_with_retry(
         half = max(int(input_tokens * 0.6), 1)
 
         prefix = f"Chunk {chunk_num}/{total_chunks}: " if chunk_num else ""
-        print(f"      {prefix}Output truncated, splitting ({input_tokens} tokens) "
-              f"and retrying (attempt {retry_depth + 1}/{max_retries})...")
+        print(
+            f"      {prefix}Output truncated, splitting ({input_tokens} tokens) "
+            f"and retrying (attempt {retry_depth + 1}/{max_retries})..."
+        )
 
         sub_chunks = chunk_text_by_tokens(text, tokenizer, max_tokens=half)
         parts = []
         for j, sub in enumerate(sub_chunks, 1):
             print(f"      Sub-chunk {j}/{len(sub_chunks)} ({count_tokens(sub, tokenizer)} tokens)...")
             result = _translate_chunk_with_retry(
-                sub, translator, source_lang, target_lang,
-                tokenizer, max_tokens, max_retries,
+                sub,
+                translator,
+                source_lang,
+                target_lang,
+                tokenizer,
+                max_tokens,
+                max_retries,
                 retry_depth=retry_depth + 1,
             )
             parts.append(result)
 
-        return '\n\n'.join(parts)
+        return "\n\n".join(parts)

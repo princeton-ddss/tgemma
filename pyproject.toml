@@ -3,34 +3,33 @@ name = "tgemma"
 version = "0.1.0"
 description = "Batch-translate documents using Google's TranslateGemma models. Supports automatic language detection and token-aware chunking."
 readme = "README.md"
-requires-python = ">=3.13"
 authors = [
-    { name = "Data-Driven Social Science, Princeton University", email = "ddss@princeton.edu" },
-    { name = "Eric Manning", email = "ericmm@princeton.edu" },
+  { name = "Data-Driven Social Science, Princeton University", email = "ddss@princeton.edu" },
+  { name = "Eric Manning", email = "ericmm@princeton.edu" },
 ]
+requires-python = ">=3.13"
+classifiers = [ "Programming Language :: Python :: 3 :: Only", "Programming Language :: Python :: 3.13" ]
 dependencies = [
-    "accelerate>=1.12.0",
-    "langdetect>=1.0.9",
-    "pillow>=12.1.0",
-    "torch>=2.9.1",
-    "transformers>=4.57.6",
-    "typer>=0.24.0",
+  "accelerate>=1.12",
+  "langdetect>=1.0.9",
+  "pillow>=12.1",
+  "torch>=2.9.1",
+  "transformers>=4.57.6",
+  "typer>=0.24",
 ]
 
-[project.scripts]
-tgemma = "tgemma.cli:main"
+scripts.tgemma = "tgemma.cli:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.2",
-    "ruff>=0.15.0",
+  "pytest>=9.0.2",
+  "ruff>=0.15",
 ]
 
 [tool.ruff]
 line-length = 120
 
-[tool.ruff.lint]
-select = ["E", "F", "W", "I"]
+lint.select = [ "E", "F", "I", "W" ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = [ "tests" ]

@@ -1,6 +1,5 @@
 """Tests for the utils module."""
 
-
 import pytest
 
 from tgemma.utils import (
@@ -52,7 +51,7 @@ class TestReadFileWithFallback:
     def test_reads_utf8_bom_file(self, tmp_path):
         file_path = tmp_path / "test.txt"
         content = "Hello with BOM"
-        file_path.write_bytes(b'\xef\xbb\xbf' + content.encode('utf-8'))
+        file_path.write_bytes(b"\xef\xbb\xbf" + content.encode("utf-8"))
 
         result = read_file_with_fallback(file_path)
         assert result == content
@@ -61,7 +60,7 @@ class TestReadFileWithFallback:
         file_path = tmp_path / "test.txt"
         # CP1252-specific characters (smart quotes, em-dash)
         content = "Hello \u201cworld\u201d \u2014 test"
-        file_path.write_bytes(content.encode('cp1252'))
+        file_path.write_bytes(content.encode("cp1252"))
 
         result = read_file_with_fallback(file_path)
         assert "Hello" in result
@@ -70,7 +69,7 @@ class TestReadFileWithFallback:
     def test_reads_latin1_file(self, tmp_path):
         file_path = tmp_path / "test.txt"
         content = "Café résumé naïve"
-        file_path.write_bytes(content.encode('latin-1'))
+        file_path.write_bytes(content.encode("latin-1"))
 
         result = read_file_with_fallback(file_path)
         # Should successfully read (though may decode differently)

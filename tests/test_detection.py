@@ -1,6 +1,5 @@
 """Tests for the detection module."""
 
-
 from tgemma.detection import (
     LANGUAGES,
     _detect_sample,

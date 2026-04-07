@@ -7,11 +7,13 @@ from pathlib import Path
 
 class TranslationError(Exception):
     """Raised when translation fails."""
+
     pass
 
 
 class SkippedFileError(Exception):
     """Raised when a file should be skipped (e.g., empty, already in target language)."""
+
     pass
 
 
@@ -44,8 +46,10 @@ def read_file_with_fallback(path: Path) -> str:
                 content = f.read()
             # Warn if we fell back to latin-1 (might be decoding garbage)
             if encoding == "latin-1" and i > 0:
-                print("  Warning: Fell back to latin-1 encoding - content may be incorrect "
-                      "if file uses a non-Western encoding (e.g., Shift-JIS, GB2312)")
+                print(
+                    "  Warning: Fell back to latin-1 encoding - content may be incorrect "
+                    "if file uses a non-Western encoding (e.g., Shift-JIS, GB2312)"
+                )
             return content
         except UnicodeDecodeError as e:
             last_error = e

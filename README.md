@@ -39,7 +39,7 @@ tgemma/
 ```bash
 git clone <repo-url> && cd tgemma
 ```
-If using a virtual environment (recommended), create/activate that now before installing dependencies. 
+If using a virtual environment (recommended), create/activate that now before installing dependencies.
 
 Conda:
 ```bash
@@ -119,7 +119,7 @@ cd /scratch/gpfs/$USER/tgemma
 conda activate tgemma
 export HF_HOME=./.hf
 
-tgemma --batch-size 25 --model google/translategemma-27b-it ./input 
+tgemma --batch-size 25 --model google/translategemma-27b-it ./input
 ```
 
 Or with uv (no activation needed):
@@ -169,6 +169,6 @@ Not checked:
 Need to add:
 - installation instructions if not using CONDA
 - slurm if not using cluster
-- more explanation 
+- more explanation
 
 -->

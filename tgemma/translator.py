@@ -61,6 +61,7 @@ class HuggingFaceTranslator:
     def _auto_batch_size(self) -> int:
         """Estimate batch size from free VRAM and model KV-cache footprint."""
         import torch
+
         if not torch.cuda.is_available():
             return 1
         free_bytes, _ = torch.cuda.mem_get_info()
@@ -77,15 +78,19 @@ class HuggingFaceTranslator:
 
     def _build_messages(self, text: str, source_lang: str, target_lang: str) -> list:
         """Build the message payload for a single chunk."""
-        return [{
-            "role": "user",
-            "content": [{
-                "type": "text",
-                "source_lang_code": source_lang,
-                "target_lang_code": target_lang,
-                "text": text,
-            }],
-        }]
+        return [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "source_lang_code": source_lang,
+                        "target_lang_code": target_lang,
+                        "text": text,
+                    }
+                ],
+            }
+        ]
 
     def is_truncated(self, text: str) -> bool:
         """Check if output was likely truncated by hitting max_new_tokens."""
@@ -111,9 +116,7 @@ class HuggingFaceTranslator:
             raise TranslationError("Translation returned empty result")
 
         if self.is_truncated(result):
-            raise TranslationError(
-                f"Output truncated (hit {self.max_chunk_tokens} token limit)"
-            )
+            raise TranslationError(f"Output truncated (hit {self.max_chunk_tokens} token limit)")
 
         return result
 
@@ -127,7 +130,7 @@ class HuggingFaceTranslator:
         results = []
 
         for batch_start in range(0, len(texts), self.batch_size):
-            batch = texts[batch_start:batch_start + self.batch_size]
+            batch = texts[batch_start : batch_start + self.batch_size]
 
             if len(texts) > 1:
                 batch_end = batch_start + len(batch)
@@ -145,13 +148,10 @@ class HuggingFaceTranslator:
             for i, output in enumerate(outputs):
                 result = output[0]["generated_text"][-1]["content"]
                 if not result or not result.strip():
-                    raise TranslationError(
-                        f"Translation returned empty result for chunk {batch_start + i + 1}"
-                    )
+                    raise TranslationError(f"Translation returned empty result for chunk {batch_start + i + 1}")
                 if self.is_truncated(result):
                     raise TranslationError(
-                        f"Output truncated for chunk {batch_start + i + 1} "
-                        f"(hit {self.max_chunk_tokens} token limit)"
+                        f"Output truncated for chunk {batch_start + i + 1} (hit {self.max_chunk_tokens} token limit)"
                     )
                 results.append(result)
 
