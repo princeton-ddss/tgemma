@@ -38,7 +38,7 @@ def get_tokenizer(model_name: str, fetch: bool) -> PreTrainedTokenizerBase:
         if not fetch:
             print(f"Error: Tokenizer for '{model_name}' not found in cache.")
             print("  Run with --fetch to download, or manually with:")
-            print(f"    huggingface-cli download {model_name} --include 'tokenizer*'")
+            print(f"    hf download {model_name} --include 'tokenizer*'")
             raise typer.Exit(1)
         print("Downloading tokenizer from HuggingFace Hub...")
         download_tokenizer(model_name)
