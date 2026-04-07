@@ -32,7 +32,7 @@ repos:
     rev: v1.14.1
     hooks:
       - id: mypy
-        files: ^(src/)
+        files: ^(tgemma/)
         args: [
           --strict,
           --ignore-missing-imports,
