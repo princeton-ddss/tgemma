@@ -147,8 +147,16 @@ def main_callback(
             print("\nRun 'tgemma --help' for more information.")
             raise typer.Exit(1)
         run_translate(
-            input_dir, output_dir, source_lang, target_lang,
-            chunk_size, batch_size, model, suffix, fetch, force,
+            input_dir,
+            output_dir,
+            source_lang,
+            target_lang,
+            chunk_size,
+            batch_size,
+            model,
+            suffix,
+            fetch,
+            force,
         )
 
 
@@ -188,7 +196,7 @@ def chunk(
     print(f"Output directory: {out_dir}")
 
     for txt_file in txt_files:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Processing: {txt_file.name}")
 
         try:
@@ -229,7 +237,7 @@ def chunk(
                 f.write(chunk_text)
             print(f"  Wrote {chunk_path.name} ({chunk_tokens} tokens)")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Done. Output directory: {out_dir}")
 
 
