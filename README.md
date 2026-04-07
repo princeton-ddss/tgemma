@@ -39,19 +39,27 @@ tgemma/
 ```bash
 git clone <repo-url> && cd tgemma
 ```
-If using a virtual environment (recommended), create/activate that now before installing dependencies.
 
-Conda:
+**With uv (recommended — no separate Python install needed):**
+```bash
+pip install uv        # skip if already installed
+uv sync
+```
+
+**With conda:**
 ```bash
 conda create -n tgemma python=3.13
 conda activate tgemma
 pip install -e .
 ```
 
-Authenticate with HuggingFace and download the model:
-
+Authenticate with HuggingFace (you'll be prompted to paste your token — get one at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) after accepting the [TranslateGemma license](https://huggingface.co/google/translategemma-12b-it)):
 ```bash
-export HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+hf auth login
+```
+
+Download the model:
+```bash
 hf download google/translategemma-12b-it
 ```
 
@@ -93,14 +101,24 @@ tgemma chunk ./input --chunk-size 500
 
 ### Setup (login node)
 
+**With conda:**
 ```bash
 cd /scratch/gpfs/$USER/tgemma
 conda create -n tgemma python=3.13
 conda activate tgemma
 pip install -e .
+```
 
-# Authenticate and download model to local cache
-export HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+**With uv:**
+```bash
+cd /scratch/gpfs/$USER/tgemma
+pip install uv        # skip if already installed
+uv sync
+```
+
+Authenticate and download the model to local cache:
+```bash
+hf auth login
 HF_HOME=./.hf hf download google/translategemma-27b-it
 ```
 
@@ -155,20 +173,3 @@ result = translate_text(
     target_lang="en",
 )
 ```
-
-<!--
-Checked:
-- slurm script
-- conda env on HPC
-
-Not checked:
-- running locally
-- programmatic usage
-- uv on HPC
-
-Need to add:
-- installation instructions if not using CONDA
-- slurm if not using cluster
-- more explanation
-
--->
