@@ -90,8 +90,9 @@ class TestChunkTextByTokens:
         # Each sentence is 2 tokens, max is 5, so 2 sentences fit together
         text = "One two. Three four. Five six. Seven eight."
         chunks = chunk_text_by_tokens(text, mock_tokenizer, max_tokens=5)
-        # Should group: ["One two. Three four.", "Five six. Seven eight."]
         assert len(chunks) == 2
+        assert "One two. Three four." in chunks[0]
+        assert "Five six. Seven eight." in chunks[1]
 
     def test_windows_line_endings_normalized(self, mock_tokenizer):
         text = "First para.\r\n\r\nSecond para."
@@ -138,6 +139,13 @@ class TestChunkBySentences:
         result = _chunk_by_sentences("Hello! How are you? Fine.", token_count, 10, mock_tokenizer)
         assert len(result) == 1
 
+    def test_handles_exclamation_and_question_marks_exceed_limit(self, mock_tokenizer):
+        def token_count(t):
+            return count_tokens(t, mock_tokenizer)
+
+        result = _chunk_by_sentences("Hello! How are you? Fine.", token_count, 3, mock_tokenizer)
+        assert len(result) == 3
+
 
 class TestChunkByRawTokens:
     def test_text_within_limit(self, mock_tokenizer):
@@ -168,11 +176,11 @@ class TestEdgeCases:
         text = "Short.\n\nThis is a much longer paragraph with many words in it.\n\nAnother short."
         chunks = chunk_text_by_tokens(text, mock_tokenizer, max_tokens=5)
         # First paragraph fits alone, second needs splitting, third fits alone
-        assert len(chunks) >= 3
+        assert len(chunks) > 3
 
     def test_empty_paragraphs_ignored(self, mock_tokenizer):
         text = "Para one.\n\n\n\n\n\nPara two."
-        chunks = chunk_text_by_tokens(text, mock_tokenizer, max_tokens=20)
+        chunks = chunk_text_by_tokens(text, mock_tokenizer, max_tokens=5)
         assert len(chunks) == 1
         # Multiple newlines collapse to single paragraph separator
         assert "Para one." in chunks[0]
