@@ -9,7 +9,7 @@ from typing import Protocol
 
 from transformers import PreTrainedTokenizerBase
 
-from .chunking import MAX_CHUNK_TOKENS, count_tokens
+from .chunking import MAX_CHUNK_TOKENS, chunk_text_by_tokens, count_tokens
 from .utils import TranslationError
 
 
@@ -150,9 +150,40 @@ class HuggingFaceTranslator:
                 if not result or not result.strip():
                     raise TranslationError(f"Translation returned empty result for chunk {batch_start + i + 1}")
                 if self.is_truncated(result):
-                    raise TranslationError(
-                        f"Output truncated for chunk {batch_start + i + 1} (hit {self.max_chunk_tokens} token limit)"
-                    )
+                    result = self._retry_truncated(texts[batch_start + i], source_lang, target_lang)
                 results.append(result)
 
         return results
+
+    def _retry_truncated(self, text: str, source_lang: str, target_lang: str, depth: int = 0) -> str:
+        """Recursively retry a truncated chunk by splitting it into smaller sub-chunks."""
+        _MAX_DEPTH = 3
+        if depth >= _MAX_DEPTH:
+            raise TranslationError(
+                f"Output still truncated after {_MAX_DEPTH} retry attempts. "
+                "Input may be too complex to translate within token limits."
+            )
+
+        input_tokens = count_tokens(text, self.tokenizer)
+        half = max(int(input_tokens * 0.6), 1)
+        print(f"      Output truncated ({input_tokens} tokens), retrying (attempt {depth + 1}/{_MAX_DEPTH})...")
+
+        sub_chunks = chunk_text_by_tokens(text, self.tokenizer, max_tokens=half)
+        parts = []
+        for j, sub in enumerate(sub_chunks, 1):
+            print(f"      Sub-chunk {j}/{len(sub_chunks)} ({count_tokens(sub, self.tokenizer)} tokens)...")
+            messages = self._build_messages(sub, source_lang, target_lang)
+            output = self.pipe(
+                text=messages,
+                do_sample=False,
+                pad_token_id=1,
+                max_new_tokens=self.max_chunk_tokens,
+            )
+            result: str = output[0]["generated_text"][-1]["content"]
+            if not result or not result.strip():
+                raise TranslationError("Translation returned empty result in retry")
+            if self.is_truncated(result):
+                result = self._retry_truncated(sub, source_lang, target_lang, depth + 1)
+            parts.append(result)
+
+        return "\n\n".join(parts)

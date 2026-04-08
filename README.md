@@ -39,19 +39,28 @@ tgemma/
 ```bash
 git clone <repo-url> && cd tgemma
 ```
-If using a virtual environment (recommended), create/activate that now before installing dependencies.
 
-Conda:
+**With uv (recommended):**
+```bash
+pip install uv        # skip if already installed
+uv sync
+source .venv/bin/activate
+```
+
+**With conda:**
 ```bash
 conda create -n tgemma python=3.13
 conda activate tgemma
 pip install -e .
 ```
 
-Authenticate with HuggingFace and download the model:
-
+Authenticate with HuggingFace (you'll be prompted to paste your token — get one after accepting the [TranslateGemma license](https://huggingface.co/google/translategemma-12b-it)):
 ```bash
-export HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+hf auth login
+```
+
+Download the model:
+```bash
 hf download google/translategemma-12b-it
 ```
 
@@ -73,7 +82,7 @@ Options:
   --source-lang TEXT     Source language code (auto-detect if not provided)
   --target-lang TEXT     Target language code (default: en)
   --chunk-size INT       Maximum tokens per chunk (default: 900)
-  --batch-size INT       Chunks to translate in parallel (default: 1)
+  --batch-size INT       Chunks to translate in parallel (default: auto)
   --model TEXT           HuggingFace model (default: google/translategemma-12b-it)
   --suffix TEXT          Output filename suffix (default: _translated_{target_lang})
   --fetch / --no-fetch   Allow downloading from HuggingFace Hub (default: no-fetch)
@@ -93,14 +102,25 @@ tgemma chunk ./input --chunk-size 500
 
 ### Setup (login node)
 
+**With conda:**
 ```bash
 cd /scratch/gpfs/$USER/tgemma
 conda create -n tgemma python=3.13
 conda activate tgemma
 pip install -e .
+```
 
-# Authenticate and download model to local cache
-export HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+**With uv:**
+```bash
+cd /scratch/gpfs/$USER/tgemma
+pip install uv        # skip if already installed
+uv sync
+source .venv/bin/activate
+```
+
+Authenticate and download the model to local cache:
+```bash
+hf auth login
 HF_HOME=./.hf hf download google/translategemma-27b-it
 ```
 
@@ -111,9 +131,13 @@ HF_HOME=./.hf hf download google/translategemma-27b-it
 #SBATCH --job-name=translate
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
-#SBATCH --mem=64G
+#SBATCH --mem=10G
 #SBATCH --gres=gpu:1
+#SBATCH --constraint=gpu80
 #SBATCH --time=24:00:00
+#SBATCH --mail-type=all
+#SBATCH --mail-user=<user>@princeton.edu
+#SBATCH --output=/scratch/gpfs/your-net-id/some-project-dir/translate.out
 
 cd /scratch/gpfs/$USER/tgemma
 conda activate tgemma
@@ -137,7 +161,6 @@ from tgemma import (
     HuggingFaceTranslator,
     load_tokenizer,
     translate_text,
-    translate_file,
 )
 
 # Load tokenizer and translator
@@ -155,20 +178,3 @@ result = translate_text(
     target_lang="en",
 )
 ```
-
-<!--
-Checked:
-- slurm script
-- conda env on HPC
-
-Not checked:
-- running locally
-- programmatic usage
-- uv on HPC
-
-Need to add:
-- installation instructions if not using CONDA
-- slurm if not using cluster
-- more explanation
-
--->
