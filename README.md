@@ -161,7 +161,6 @@ from tgemma import (
     HuggingFaceTranslator,
     load_tokenizer,
     translate_text,
-    translate_file,
 )
 
 # Load tokenizer and translator
