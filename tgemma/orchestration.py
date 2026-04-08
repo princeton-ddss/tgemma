@@ -162,27 +162,7 @@ def translate_text(
     chunks = chunk_text_by_tokens(text, tokenizer, max_tokens=max_tokens)
     print(f"    Document is long - splitting into {len(chunks)} chunks...")
 
-    try:
-        return "\n\n".join(translator.translate_batch(chunks, source_lang, target_lang))
-    except TranslationError as e:
-        if "truncated" not in str(e).lower():
-            raise
-        # A chunk produced truncated output — fall back to per-chunk retry for all chunks
-        translated_chunks = []
-        for i, chunk in enumerate(chunks):
-            result = _translate_chunk_with_retry(
-                chunk,
-                translator,
-                source_lang,
-                target_lang,
-                tokenizer,
-                max_tokens,
-                max_retries,
-                chunk_num=i + 1,
-                total_chunks=len(chunks),
-            )
-            translated_chunks.append(result)
-        return "\n\n".join(translated_chunks)
+    return "\n\n".join(translator.translate_batch(chunks, source_lang, target_lang))
 
 
 def _translate_chunk_with_retry(
