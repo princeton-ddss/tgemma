@@ -131,9 +131,13 @@ HF_HOME=./.hf hf download google/translategemma-27b-it
 #SBATCH --job-name=translate
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
-#SBATCH --mem=64G
+#SBATCH --mem=10G
 #SBATCH --gres=gpu:1
+#SBATCH --constraint=gpu80
 #SBATCH --time=24:00:00
+#SBATCH --mail-type=all
+#SBATCH --mail-user=<user>@princeton.edu
+#SBATCH --output=/scratch/gpfs/your-net-id/some-project-dir/translate.out
 
 cd /scratch/gpfs/$USER/tgemma
 conda activate tgemma
