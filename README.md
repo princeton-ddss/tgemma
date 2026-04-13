@@ -126,6 +126,8 @@ HF_HOME=./.hf hf download google/translategemma-27b-it
 
 ### Example Slurm script
 
+**With conda:**
+
 ```bash
 #!/bin/bash
 #SBATCH --job-name=translate
@@ -139,19 +141,39 @@ HF_HOME=./.hf hf download google/translategemma-27b-it
 #SBATCH --mail-user=<user>@princeton.edu
 #SBATCH --output=/scratch/gpfs/your-net-id/some-project-dir/translate.out
 
-cd /scratch/gpfs/$USER/tgemma
+cd /scratch/gpfs/$USER/tgemma/
 conda activate tgemma
 export HF_HOME=./.hf
 
-tgemma --batch-size 25 --model google/translategemma-27b-it ./input
+tgemma --model google/translategemma-27b-it ./input
 ```
 
-Or with uv (no activation needed):
+**With uv:**
 
 ```bash
-cd /scratch/gpfs/$USER/tgemma
+#!/bin/bash
+#SBATCH --job-name=translate
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=4
+#SBATCH --mem=10G
+#SBATCH --gres=gpu:1
+#SBATCH --constraint=gpu80
+#SBATCH --time=24:00:00
+#SBATCH --mail-type=all
+#SBATCH --mail-user=<user>@princeton.edu
+#SBATCH --output=/scratch/gpfs/your-net-id/some-project-dir/translate.out
+
+cd /scratch/gpfs/$USER/tgemma/
+source .venv/bin/activate
 export HF_HOME=./.hf
-uv run tgemma --output-dir ./output --batch-size 25 ./input
+
+tgemma ./input --model google/translategemma-27b-it
+```
+
+Simply submit your slurm job like so:
+
+```
+sbatch translate.slurm
 ```
 
 ## Programmatic usage
