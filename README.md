@@ -144,6 +144,7 @@ HF_HOME=./.hf hf download google/translategemma-27b-it
 cd /scratch/gpfs/$USER/tgemma/
 conda activate tgemma
 export HF_HOME=./.hf
+export PYTHONUNBUFFERED=1
 
 tgemma --model google/translategemma-27b-it ./input
 ```
@@ -166,6 +167,7 @@ tgemma --model google/translategemma-27b-it ./input
 cd /scratch/gpfs/$USER/tgemma/
 source .venv/bin/activate
 export HF_HOME=./.hf
+export PYTHONUNBUFFERED=1
 
 tgemma ./input --model google/translategemma-27b-it
 ```
