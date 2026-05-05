@@ -74,8 +74,8 @@ class HuggingFaceTranslator:
             n_kv_heads = getattr(cfg, "num_key_value_heads", cfg.num_attention_heads)
             head_dim = getattr(cfg, "head_dim", cfg.hidden_size // cfg.num_attention_heads)
             # KV cache per sequence: 2 (K+V) * layers * kv_heads * head_dim * tokens * 2 bytes (bfloat16)
-            # 1.5x overhead for activations and intermediate buffers
-            per_seq_bytes = int(2 * n_layers * n_kv_heads * head_dim * self.max_chunk_tokens * 2 * 1.5)
+            # 4x overhead for activations and intermediate buffers
+            per_seq_bytes = int(2 * n_layers * n_kv_heads * head_dim * self.max_chunk_tokens * 2 * 4)
             return max(1, min(int(free_bytes // per_seq_bytes), 256))
         except Exception:
             return 1
