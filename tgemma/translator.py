@@ -50,6 +50,7 @@ class HuggingFaceTranslator:
             device_map="auto",
             torch_dtype=torch.bfloat16,
         )
+        self.pipe.model.generation_config.pad_token_id = self.pipe.tokenizer.eos_token_id
         print("Model loaded!")
 
         if batch_size is None:
